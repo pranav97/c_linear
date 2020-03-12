@@ -1,3 +1,5 @@
+import csv
+
 import re
 import numpy as np
 import sys
@@ -67,7 +69,7 @@ class MatrixTester(object):
 
     def mult_test(
             self, row1, col1, row2, col2,
-            perf_test=False, single_thread=False):
+            perf_test=False, single_thread=False, print_output=False):
         mat = np.random.randint(1, 100, size=(row1, col1))
         mat2 = np.random.randint(1, 100, size=(row2, col2))
 
@@ -86,12 +88,14 @@ class MatrixTester(object):
         str_out = out.decode("utf-8")
         result = self.parse_output(
             str_out, perf_test=perf_test)
+        if print_output:
+            print(str_out)
         if perf_test:
             return result
 
         if np.array_equal(result, prod):
             return "PASS"
-        return "FAIL\n Expected {}\n Got {}\n".format(prod.__repr__(), str_out)
+        return "FAIL\n Expected {}\n Got {}\n".format(prod.__repr__(), str_out)            
 
     def correctness_mult_tests(self):
         print("\n\nRunning Multiplication Tests")
@@ -112,27 +116,34 @@ class MatrixTester(object):
                         print("x", end=" ", flush=True)
                         failed.append("test {} row {} col {}: {}".format(
                             self.test_num, a, c, ret))
-
                     self.test_num += 1
         self.print_report(failed)
 
     def performance_mult(self):
         print("\n\nMult tests")
         num_rows = [500,
-                    1000
+                    1000,
+                    1500,
+                    2000
                     ]
-        for i in range(len(num_rows)):
-            print("Test {}: {} rows and cols".format(i, num_rows[i]))
-            ret = self.mult_test(
-                num_rows[i], num_rows[i], num_rows[i], num_rows[i],
-                perf_test=True, single_thread=True)
-            print("Single Thread: {} microseconds".format(ret))
-            speed = self.mult_test(
-                num_rows[i], num_rows[i], num_rows[i], num_rows[i],
-                perf_test=True)
-            print("Multi  Thread: {} microseconds".format(speed))
-            up = float(ret/speed)
-            print("* {} x speedup".format(up))
+        f = open('speedup.csv', 'w')
+        with f:
+            fnames = ['single', 'multi', 'speedup']
+            writer = csv.DictWriter(f, fieldnames=fnames)    
+            writer.writeheader()
+            for i in range(len(num_rows)):
+                print("Test {}: {} rows and cols".format(i, num_rows[i]))
+                ret = self.mult_test(
+                    num_rows[i], num_rows[i], num_rows[i], num_rows[i],
+                    perf_test=True, single_thread=True)
+                print("Single Thread: {} microseconds".format(ret))
+                speed = self.mult_test(
+                    num_rows[i], num_rows[i], num_rows[i], num_rows[i],
+                    perf_test=True)
+                print("Multi  Thread: {} microseconds".format(speed))
+                up = float(ret/speed)
+                print("* {} x speedup".format(up))
+                writer.writerow({'single' : ret, 'multi': speed, 'speedup': up})
 
 def run_performance_tests():
     print("\n\nRunning Performance tests")
@@ -149,6 +160,7 @@ def run_all_tests():
 
 
 def main():
+    # MatrixTester().run_single_test()
     if len(sys.argv) > 1:
         if sys.argv[1] == "-p":
             print_matrix_to_file()
@@ -163,3 +175,4 @@ def print_matrix_to_file():
 if __name__ == "__main__":
 
     main()
+

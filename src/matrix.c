@@ -1,20 +1,12 @@
 #include "matrix.h"
-#include <pthread.h> 
-
-
-// void copy_elems(const MatrixMap &a, MatrixMap &targ, size_t start_ind, size_t end_ind) {
-//     for (size_t j = start_ind; j < end_ind; j++) {
-//         targ.matrix[start_ind] = a.matrix[start_ind];
-//         start_ind ++;
-//     }
-// }
+#include<stdio.h>
+#include<string.h>
+#include<pthread.h>
+#include<stdlib.h>
+#include<unistd.h>
 
 void print_matrix(const MatrixMap *a) {
     size_t row, col;
-    if (a == NULL) {
-        printf("fuccccc");
-        exit(1);
-    }
     for (row = 0; row < a -> num_rows; row++) {
         for (col = 0; col < a -> num_cols; col++) {
             printf("%lld \t", a -> matrix[get_ind(row, col, a -> num_rows)]);
@@ -42,7 +34,7 @@ void multiply_single_thread(struct matrix_pair *mp) {
     mp -> targ -> num_cols = b -> num_cols;
     
     size_t num_elm = mp -> targ -> num_rows  * mp -> targ -> num_cols;
-    long long int *matrix = malloc(num_elm * sizeof(long long int)); 
+    long long int *matrix = calloc(num_elm, sizeof(long long int)); 
     mp -> targ -> matrix = matrix;
     size_t last_row = mp ->  targ -> num_rows, cur_row, cur_col;
     for (cur_row = 0; cur_row < last_row; cur_row++) {
@@ -63,6 +55,7 @@ void multiply_row_and_col(const MatrixMap *a, size_t cur_row, const MatrixMap *b
             cur_ind     +=      a ->num_rows
         ) {
         val += a ->matrix[cur_ind] * b ->matrix[cc];
+        
         cc++;
     }
     targ ->matrix[get_ind(cur_row, cur_col, targ ->num_rows)] = val;
@@ -71,7 +64,7 @@ void multiply_row_and_col(const MatrixMap *a, size_t cur_row, const MatrixMap *b
 
 
 
-void *multiply_helper(void *mh) {
+void multiply_helper(void *mh) {
     size_t cur_row, cur_col;
     struct m_help *mult_helper = mh;
     for (cur_row = mult_helper -> start;
@@ -85,24 +78,20 @@ void *multiply_helper(void *mh) {
             multiply_row_and_col(mult_helper -> a, cur_row, mult_helper -> b, cur_col, mult_helper -> mult);
         }
     }
-    pthread_exit(NULL);
-
+    free(mh);
 }
 
 void row_split_multiply(const MatrixMap *a, const MatrixMap *b, MatrixMap *targ) {
     size_t last_row = a ->num_rows, rows_per_core, start = 0, end = 0;
     int numofcpus = sysconf(_SC_NPROCESSORS_ONLN); // Get the number of logical CPUs.
+    printf("Number of threads %d", numofcpus);
     pthread_t all_threads[MAX_THREAD];
     int running = 0;
 
     if (numofcpus <= 0) {
         printf("There is only 1 core on this machine");
         numofcpus = 1;
-    }
-    // else {
-    //     printf("There is only %d cores on this machine\n", numofcpus);
-    // }
-    
+    }   
     rows_per_core =  last_row / numofcpus;
     if (last_row % numofcpus != 0) {
         rows_per_core += 1;
@@ -110,32 +99,28 @@ void row_split_multiply(const MatrixMap *a, const MatrixMap *b, MatrixMap *targ)
 
     
     for(end = start + rows_per_core; end <= last_row; end = end + rows_per_core) {
-        struct m_help help;
-        help.a = a;
-        help.b = b;
-        help.mult = targ;
-        help.start = start;
-        help.end = end;
-
-        pthread_create(&all_threads[running], NULL, multiply_helper, &help);
+        struct m_help *help = malloc(sizeof(struct m_help));
+        help -> a = a;
+        help -> b = b;
+        help -> mult = targ;
+        help -> start = start;
+        help -> end = end;
+        pthread_create(&all_threads[running], NULL, (void *) multiply_helper, help);
         running++;
-        multiply_helper(&help); 
         start += rows_per_core;
     }
     if (end != last_row) {
-        struct m_help help;
-        help.a = a;
-        help.b = b;
-        help.mult = targ;
-        help.start = start;
-        help.end = last_row;
-        multiply_helper(&help); 
+        struct m_help *help = malloc(sizeof(struct m_help ));
+        help -> a = a;
+        help -> b = b;
+        help -> mult = targ;
+        help -> start = start;
+        help -> end = last_row;
+        multiply_helper(help); 
     }
     for (int i = 0; i < running; i++) {
         pthread_join(all_threads[i], NULL); 
-
     }
-
 }
 
 void multiply(struct matrix_pair *mp) {
@@ -147,7 +132,7 @@ void multiply(struct matrix_pair *mp) {
     mp -> targ -> num_cols = b -> num_cols;
     
     size_t num_elm = mp -> targ -> num_rows  * mp -> targ -> num_cols;
-    long long int *matrix = malloc(num_elm * sizeof(long long int)); 
+    long long int *matrix = calloc(num_elm, sizeof(long long int)); 
     mp -> targ -> matrix = matrix;  
     row_split_multiply(mp -> m, mp -> m2, mp -> targ);
 }
