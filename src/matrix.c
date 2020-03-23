@@ -84,7 +84,7 @@ void multiply_helper(void *mh) {
 void row_split_multiply(const MatrixMap *a, const MatrixMap *b, MatrixMap *targ) {
     size_t last_row = a ->num_rows, rows_per_core, start = 0, end = 0;
     int numofcpus = sysconf(_SC_NPROCESSORS_ONLN); // Get the number of logical CPUs.
-    printf("Number of threads %d", numofcpus);
+    /* printf("Number of threads %d", numofcpus); */
     pthread_t all_threads[MAX_THREAD];
     int running = 0;
 
